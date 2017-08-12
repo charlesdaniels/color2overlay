@@ -33,6 +33,7 @@
 
 from PIL import Image
 from PIL import ImageDraw
+from PIL import ImageFilter
 import colormap
 import sys
 import argparse
@@ -51,7 +52,12 @@ def posInt(x):
 
 def byteInt(x):
     # make sure that an integer is within 0-255
-    x = int(x)
+    try:
+        x = int(x)
+    except ValueError:
+        # accept things like 0b110101 
+        x = int(x, 2)
+
     if x < 0 or x > 255:
         raise argparse.ArgumentTypeError("'{}' is not a valid byte".format(x))
     return x
@@ -61,20 +67,56 @@ argsDesc = "A tool for generating pretty images from sets of colors"
 parser = argparse.ArgumentParser(description = argsDesc)
 parser.add_argument("--verbose", "-v", action = "store_true", default = False,
     help = "Display verbose output on stderr")
+
 parser.add_argument("--debug", "-d", action = "store_true", default = False,
     help = "Display debug output on stderr")
+
 parser.add_argument("--canvas-size-x", "-x", default = 1920, type = posInt,
     help = "Canvas size on the X axis in pixels (default: 1920)")
+
 parser.add_argument("--canvas-size-y", "-y", default = 1080, type = posInt,
     help = "Canvas size on the Y axis in pixels (default: 1080")
+
 parser.add_argument("--margin", "-m", default = 200, type = posInt,
     help = "Space between rectangles and canvas edge in pixels (default: 200)")
+
 parser.add_argument("--input-colors", "-c", default = "stdin",
     help = "Input file for colors, 'stdin' for standard in (default: stdin)")
+
 parser.add_argument("--alpha", "-a", default = 255, type = byteInt,
     help = "Set the alpha channel for input colors (default: 255)")
+
 parser.add_argument("--width", "-w", default = 0.8, type = float,
-        help = "Percentage of maximum rectangle width to use (default: 0.8)")
+    help = "Percentage of maximum rectangle width to use (default: 0.8)")
+
+parser.add_argument("--output-file", "-o", required = True,
+    help = """Output file name, including extension. Note that PNG format is
+always used""")
+
+parser.add_argument("--filter-blur", default = 0, type = float,
+    help = """If nonzero, apply a guassian blur filter with the specified
+radius (default: 0)""")
+
+parser.add_argument("--mask-r", default = 0b11111111, type = byteInt,
+    help = "Apply bitmask to the red channel")
+
+parser.add_argument("--mask-g", default = 0b11111111, type = byteInt,
+    help = "Apply bitmask to the green channel")
+
+parser.add_argument("--mask-b", default = 0b11111111, type = byteInt,
+    help = "Apply bitmask to the blue channel")
+
+parser.add_argument("--add-r", default = 0, type = byteInt,
+    help = "Add this int to the red channel, will not exceed 255 in total")
+
+parser.add_argument("--add-g", default = 0, type = byteInt,
+    help = "Add this int to the green channel, will not exceed 255 in total")
+
+parser.add_argument("--add-b", default = 0, type = byteInt,
+    help = "Add this int to the blue channel, will not exceed 255 in total")
+
+parser.add_argument("--background-image", "-i", default=None,
+    help = "Superimpose the result over a background image")
 
 args = parser.parse_args()
 
@@ -137,6 +179,31 @@ else:
 
 ########10########20########30# EXTRACT COLORS #50########60########70########80
 
+def apply_mask(colorTuple):
+    # apply the bitmask and adds
+
+    red   = colorTuple[0]
+    green = colorTuple[1]
+    blue  = colorTuple[2]
+    alpha = colorTuple[3]
+
+    # apply mask
+    red   = red & args.mask_r
+    green = green & args.mask_g
+    blue  = blue & args.mask_b
+
+    # add if desired
+    red   = min(255, red   + args.add_r)
+    green = min(255, green + args.add_g)
+    blue  = min(255, blue  + args.add_b)
+
+    maskedTuple = (red, green, blue, alpha)
+
+    logging.debug("masked {} -> {}".format(colorTuple, maskedTuple))
+
+    return maskedTuple
+
+
 colors = []
 
 # parse colors from the input file
@@ -152,6 +219,9 @@ for line in colorsFile:
 
     # add in alpha channel
     color = (*color, alpha)
+
+    # apply mask
+    color = apply_mask(color)
 
     logging.debug("{} -> {}".format(line, color))
     colors.append(color)
@@ -191,5 +261,24 @@ for i in range(len(colors)):
 
     draw.rectangle(region, fill=currentColor)
 
+
+########10########20########30# POST PROCESSING 50########60########70########80
+
+# apply filters
+if args.filter_blur > 0:
+    logging.debug("Applying Gaussian blur with r={}".format(args.filter_blur))
+    canvas = canvas.filter(ImageFilter.GaussianBlur(radius = args.filter_blur))
+
+# superimpose over background
+if args.background_image is not None:
+
+    logging.debug("superimposing over background image: '{}'"
+                  .format(args.background_image))
+
+    # the .convert is required to force the image mode to be RGBA
+    background = Image.open(args.background_image).convert("RGBA")
+
+    canvas = Image.alpha_composite(background, canvas)
+
 # save output
-canvas.save("out.png", "PNG")
+canvas.save(args.output_file, "PNG")
