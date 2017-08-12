@@ -25,7 +25,13 @@ colors = []
 
 for line in sys.stdin:
     line = line.rstrip()
-    color = colormap.hex2rgb(line)
+
+    try:
+        color = colormap.hex2rgb(line)
+    except Exception as e:
+        print("failed to convert line '{}'".format(line))
+        continue
+
     color = (*color, 255)
     print("{} -> {}".format(line, color))
     colors.append(color)

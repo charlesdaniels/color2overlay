@@ -1,0 +1,19 @@
+#!/usr/bin/env python3
+
+import sys
+import colormap
+
+buf = []
+for line in sys.stdin:
+    for char in line:
+        if len(buf) >= 3:
+            print(colormap.rgb2hex(buf[0], buf[1], buf[2]))
+            buf = []
+
+        buf.append(ord(char))
+
+# pad with zeros
+while len(buf) < 3:
+    buf.append(0)
+
+print(colormap.rgb2hex(buf[0], buf[1], buf[2]))
