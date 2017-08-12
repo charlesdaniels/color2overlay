@@ -1,0 +1,43 @@
+#!/usr/bin/env python3
+
+from PIL import Image
+from PIL import ImageDraw
+import colormap
+import sys
+
+size = (1920, 1080)
+margin = 300
+pitch = 50
+
+drawable = ((margin, margin), (size[0] - margin, size[1] - margin))
+print("draw-able area is: {}".format(drawable))
+
+img = Image.new("RGBA", size, (0,0,0,255))
+
+draw = ImageDraw.Draw(img, "RGBA")
+#  draw.rectangle(drawable, fill=(255, 123, 123, 255))
+
+#  colors = [(255, 0, 0, 255),
+#            (0, 255, 0, 255),
+#            (0, 0, 255, 255)]
+
+colors = []
+
+for line in sys.stdin:
+    line = line.rstrip()
+    color = colormap.hex2rgb(line)
+    color = (*color, 255)
+    print("{} -> {}".format(line, color))
+    colors.append(color)
+
+width = abs(drawable[0][0] - drawable[1][0]) / len(colors)
+
+for i in range(len(colors)):
+    c = colors[i]
+    rect = ((drawable[0][0] + i * width, drawable[0][1]),
+            (drawable[0][0] + i * width + width - pitch, drawable[1][1]))
+    print("rect: {}".format(rect))
+
+    draw.rectangle(rect, fill=c)
+
+img.save("out.png", "PNG")
