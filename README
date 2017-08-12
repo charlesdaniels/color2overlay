@@ -1,0 +1,201 @@
+########10########20########30### 0. CONTENTS ##50########60########70########80
+
+0. CONTENTS . . . . . Table of contents.
+1. INTRODUCTION . . . Overview & introduction to color2overlay.
+2. INSTALLATION . . . Installation instructions.
+3. USAGE  . . . . . . Usage instructions.
+4. MASKING  . . . . . Guide to the "masking" feature, with examples.
+5. txt2color  . . . . Guide to the txt2color utility, with examples.
+6. LICENSE  . . . . . Software license.
+
+########10########20########30# 1. INTRODUCTION 50########60########70########80
+
+color2overlay is a fun little program which accepts a sequence of hexadecimal
+color codes, and produces a number of rectangles of the given colors, evenly
+sized and distributed in the center of the resulting image. color2overlay
+supports changing the margin around the drawing area (the region where the
+rectangles are drawn), changing the canvas size, changing the width of the
+rectangles, and applying translucency and blur effects. The result can
+optionally be overlaid on top of an existing image, or saved directly for
+futher processing by other programs. color2overlay also supports applying
+bitmasks to the R, G, and B channels separately.
+
+color2overly is not meant to be useful, and is intended to be an entertaining
+means of generating wallpapers, avatars, and the like.
+
+For examples of the output, please see the ./demos directory.
+
+
+########10########20########30# 2. INSTALLATION 50########60########70########80
+
+color2overlay runs as a simple standalone python program, requiring only
+minimal dependencies, namely Pillow and colormap, which can both be obtained
+from pip, or your distro's package manager. color2overlay targets Python 3; use
+of Python 2.X and/or PIL (rather than Pillow) may or may not work.
+
+With the dependancies installed, you can simply run color2overlay directly with
+no further special setup.
+
+
+########10########20########30#### 3. USAGE ####50########60########70########80
+
+usage: color2overlay [-h] [--verbose] [--debug]
+                     [--canvas-size-x CANVAS_SIZE_X]
+                     [--canvas-size-y CANVAS_SIZE_Y] [--margin MARGIN]
+                     [--input-colors INPUT_COLORS] [--alpha ALPHA]
+                     [--width WIDTH] --output-file OUTPUT_FILE
+                     [--filter-blur FILTER_BLUR] [--mask-r MASK_R]
+                     [--mask-g MASK_G] [--mask-b MASK_B] [--add-r ADD_R]
+                     [--add-g ADD_G] [--add-b ADD_B]
+                     [--background-image BACKGROUND_IMAGE]
+
+A tool for generating pretty images from sets of colors. Accepts a newline-
+delimited list of hexadecimal color codes (example: #636F6C) either on
+standard in (by default), or from a file. Renders each color as a colored
+rectangle into an image.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --verbose, -v         Display verbose output on stderr
+  --debug, -d           Display debug output on stderr
+  --canvas-size-x CANVAS_SIZE_X, -x CANVAS_SIZE_X
+                        Canvas size on the X axis in pixels (default: 1920)
+  --canvas-size-y CANVAS_SIZE_Y, -y CANVAS_SIZE_Y
+                        Canvas size on the Y axis in pixels (default: 1080
+  --margin MARGIN, -m MARGIN
+                        Space between rectangles and canvas edge in pixels
+                        (default: 200)
+  --input-colors INPUT_COLORS, -c INPUT_COLORS
+                        Input file for colors, 'stdin' for standard in
+                        (default: stdin)
+  --alpha ALPHA, -a ALPHA
+                        Set the alpha channel for input colors (default: 255)
+  --width WIDTH, -w WIDTH
+                        Percentage of maximum rectangle width to use (default:
+                        0.8)
+  --output-file OUTPUT_FILE, -o OUTPUT_FILE
+                        Output file name, including extension. Note that PNG
+                        format is always used
+  --filter-blur FILTER_BLUR
+                        If nonzero, apply a Gaussian blur filter with the
+                        specified radius (default: 0)
+  --mask-r MASK_R       Apply bitmask to the red channel
+  --mask-g MASK_G       Apply bitmask to the green channel
+  --mask-b MASK_B       Apply bitmask to the blue channel
+  --add-r ADD_R         Add this int to the red channel, will not exceed 255
+                        in total
+  --add-g ADD_G         Add this int to the green channel, will not exceed 255
+                        in total
+  --add-b ADD_B         Add this int to the blue channel, will not exceed 255
+                        in total
+  --background-image BACKGROUND_IMAGE, -i BACKGROUND_IMAGE
+                        Superimpose the result over a background image
+
+########10########20########30### 4. MASKING ###50########60########70########80
+
+color2overlay supports an interesting feature - it can individually apply a
+bitmask to each of the R, G, and B channels separately, and can also optionally
+add on to the value of each channel individually. This feature is useful for
+forcing the resulting image to have a particular hue, or elimiting a certain
+hue from the result.
+
+For those unfamiliar, bit-masking essentially allows one to define "gates"
+through which certain bits may or may not pass. Thus, for a given bit with a
+mask of 1, the output will be whatever the input bit was. For a given bit with
+a mask of 0, the output will always be zero. Lets consider some examples using
+Python (note that the & operator in python is the "bitwise AND" operator).
+
+>>> bin(0b1111 & 0b1010)
+'0b1010'
+>>> bin(0b0011 & 0b1010)
+'0b10'
+>>> bin(0b0000 & 0b1010)
+'0b0'
+>>> bin(0b1100 & 0b1010)
+'0b1000'
+
+This is exactly the functionality we are tapping into via the --mask-* options
+- each channel (red, green, and blue) for each color read as input is
+represented as a byte (0-255). By applying a mask to the byte, we can drop the
+intensity of that channel.
+
+As an example, lets say you wanted to reduce the amount of red hues in your
+input colors. You could "mask out" the two most significant bits of the red
+channel by using the mask `--mask-r 0b00111111` (note that color2overlay
+supports Python's binary number notation, or base-10 integers as input for
+masks). To see what this looks like, compare the files:
+
+demos/color2overlay.png
+demos/color2overlay_mask-r.png
+
+The former is unmodified, and the latter was processed with `--mask-r
+0b00111111`.
+
+On the other hand, you might want to intensify the color on a particular
+channel.  This can be accomplished with the `--add-*` options. These add an
+integer number to the specified channel, then set that channel equal to either
+255, or the channel value plus the added value - whichever is lower.
+
+As an example, lets consider the image from the previous example. Perhaps we
+might want a more intense green to come through, so we will process it with
+`--add-g 32 --mask-r 0b00111111`. To see the result, compare the two files
+from the previous example, as well as the file:
+
+demos/color2overlay_mask-r_add-g.png
+
+########10########20########30## 5. txt2color ##50########60########70########80
+
+As a helpful aid, a utility is included with color2overlay - `txt2color`. This
+tool will accept on standard input arbitrary text, and will emit as output
+a list of hexadecimal color codes suitable for consumption by color2overlay.
+The tool operates by taking the ordinal value of each character read, grouping
+them into tuples of three values, then converting these tuples to hex color
+codes.
+
+Note that if the input text has a number of characters which is not a multiple
+of 3, the remaining characters are padded as NULL.
+
+Example 1:
+
+$ echo "color2overlay" | ./txt2color
+#636F6C
+#6F7232
+#6F7665
+#726C61
+#790A00
+
+Example 2:
+
+$ echo "color2overlay" |./txt2color | ./color2overlay --output demos/color2overlay.png
+
+########10########20########30### 6. LICENSE ###50########60########70########80
+
+Copyright (c) 2017, Charles Daniels
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice,
+this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation
+and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its
+contributors may be used to endorse or promote products derived from this
+software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
+
